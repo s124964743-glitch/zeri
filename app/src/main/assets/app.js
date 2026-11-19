@@ -22,7 +22,7 @@
       var s = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (s) { Object.keys(s).forEach(function (k) { state[k] = s[k]; }); state.res = null; state.tab = 'data'; }
     } catch (e) {}
-    ['ta', 'pai'].forEach(function (t) { var z = state.seat[t] && state.seat[t].zuo; if (z != null) state.seat[t].zuo = (Math.round(z / 3) * 3) % 24; });
+    ['ta', 'pai'].forEach(function (t) { var z = state.seat[t] && state.seat[t].zuo; if (z != null) state.seat[t].zuo = (Math.round(z / 3) * 3) % 24; if (t === 'pai' && state.seat[t].zuo % 6 !== 0) state.seat[t].zuo = null; });
     state.persons.forEach(function (p) {
       uid = Math.max(uid, (p.id || 0) + 1);
       if (!p.era) {
@@ -106,6 +106,7 @@
   function seatHtml(task, title) {
     var st = state.seat[task], opts = '<option value="">（不指定，略過座向檢核）</option>';
     EIGHT.forEach(function (e) {
+      if (task === 'pai' && e[0].length > 1) return;
       var op = EIGHT[(EIGHT.indexOf(e) + 4) % 8][0];
       opts += '<option value="' + e[1] + '"' + (st.zuo === e[1] ? ' selected' : '') + '>坐' + e[0] + '向' + op + '</option>';
     });
