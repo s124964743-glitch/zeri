@@ -22,24 +22,32 @@
       var s = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (s) { Object.keys(s).forEach(function (k) { state[k] = s[k]; }); state.res = null; state.tab = 'data'; }
     } catch (e) {}
-    state.persons.forEach(function (p) { uid = Math.max(uid, (p.id || 0) + 1); });
+    state.persons.forEach(function (p) {
+      uid = Math.max(uid, (p.id || 0) + 1);
+      if (!p.era) {
+        p.era = 'ad';
+        var a = parseD(p.date) || {}, b = parseD(p.death) || {};
+        p.y = a.y || ''; p.m = a.m || ''; p.d = a.d || ''; p.dy = b.y || ''; p.dm = b.m || ''; p.dd = b.d || '';
+      }
+    });
     if (!state.persons.some(function (p) { return p.role === 'dead'; })) state.persons.unshift(newPerson('dead'));
     if (state.from < todayStr(0)) { state.from = todayStr(0); state.to = todayStr(90); }
   }
   function newPerson(role) {
-    return { id: uid++, role: role, label: '', cal: 'solar', date: '', ly: '', lm: 1, ld: 1, leap: false, hour: '', death: '', use: true };
+    return { id: uid++, role: role, label: '', cal: 'solar', era: 'roc', y: '', m: '', d: '', ly: '', lm: '', ld: '', leap: false, hour: '', dy: '', dm: '', dd: '', use: true };
   }
 
   // ---------- 個人資料 ----------
+  function toAD(p, y) { y = +y; return p.era === 'roc' ? y + 1911 : y; }
   function specOf(p) {
-    if (p.cal === 'lunar') { if (!p.ly) return null; return { cal: 'lunar', y: +p.ly, m: +p.lm, d: +p.ld, leap: !!p.leap, hour: p.hour }; }
-    var d = parseD(p.date); if (!d) return null;
-    return { cal: 'solar', y: d.y, m: d.m, d: d.d, hour: p.hour };
+    if (p.cal === 'lunar') { if (!p.ly || !p.lm || !p.ld) return null; return { cal: 'lunar', y: toAD(p, p.ly), m: +p.lm, d: +p.ld, leap: !!p.leap, hour: p.hour }; }
+    if (!p.y || !p.m || !p.d) return null;
+    return { cal: 'solar', y: toAD(p, p.y), m: +p.m, d: +p.d, hour: p.hour };
   }
   function profOf(p) {
     var sp = specOf(p); if (!sp) return null;
     var ref = null;
-    if (p.role === 'dead' && p.death) { var dd = parseD(p.death); if (dd) ref = L.Solar.fromYmd(dd.y, dd.m, dd.d); }
+    if (p.role === 'dead' && p.dy && p.dm && p.dd) { try { var dy = toAD(p, p.dy); var rs = L.Solar.fromYmd(dy, +p.dm, +p.dd); if (rs.getYear() === dy && rs.getMonth() === +p.dm && rs.getDay() === +p.dd) ref = rs; } catch (e) {} }
     try { var r = Z.profile(sp, ref); r.hasDeath = !!ref; return r; } catch (e) { return { error: '日期超出支援範圍（1901–2099）' }; }
   }
   function infoHtml(p) {
@@ -54,6 +62,12 @@
     r.note.forEach(function (n) { o += '<div class="note">※ ' + esc(n) + '</div>'; });
     return o;
   }
+  function yf(k, v, label, ph) { return '<label class="f" style="flex:1.4"><span>' + label + '</span><input type="number" inputmode="numeric" data-k="' + k + '" value="' + esc(v) + '" placeholder="' + ph + '"></label>'; }
+  function selF(k, v, n, unit, names) {
+    var o = '<option value="">—</option>';
+    for (var i = 1; i <= n; i++) o += '<option value="' + i + '"' + (+v === i ? ' selected' : '') + '>' + (names === 'cn' ? dayCn(i) : names ? names[i - 1] + '月' : i + unit) + '</option>';
+    return '<label class="f" style="min-width:70px"><span>' + unit + '</span><select data-k="' + k + '">' + o + '</select></label>';
+  }
   function personCard(p) {
     var dead = p.role === 'dead';
     var o = '<div class="card" data-id="' + p.id + '">';
@@ -61,22 +75,20 @@
     if (!dead) o += '<label class="f" style="flex:0 0 74px;align-items:center"><span>納入</span><input type="checkbox" data-k="use" ' + (p.use ? 'checked' : '') + '></label>';
     o += '</div>';
     o += '<div class="seg" style="margin:6px 0"><button data-a="cal" data-v="solar" class="' + (p.cal === 'solar' ? 'on' : '') + '">國曆</button><button data-a="cal" data-v="lunar" class="' + (p.cal === 'lunar' ? 'on' : '') + '">農曆</button></div>';
+    o += '<div class="seg" style="margin:6px 0"><button data-a="era" data-v="roc" class="' + (p.era === 'roc' ? 'on' : '') + '">民國紀年</button><button data-a="era" data-v="ad" class="' + (p.era === 'ad' ? 'on' : '') + '">西元紀年</button></div>';
+    var ey = p.era === 'roc' ? '民國年' : '西元年', ph = p.era === 'roc' ? '例：39' : '例：1950';
+    var MN = ['正', '二', '三', '四', '五', '六', '七', '八', '九', '十', '冬', '臘'];
     if (p.cal === 'solar') {
-      o += '<div class="row"><label class="f"><span>出生國曆日期</span><input type="date" data-k="date" min="1901-01-01" max="2099-12-31" value="' + esc(p.date) + '"></label></div>';
+      o += '<div class="row">' + yf('y', p.y, '出生' + ey, ph) + selF('m', p.m, 12, '月', null) + selF('d', p.d, 31, '日', null) + '</div>';
     } else {
-      var ms = '', ds = '', MN = ['正', '二', '三', '四', '五', '六', '七', '八', '九', '十', '冬', '臘'];
-      for (var i = 1; i <= 12; i++) ms += '<option value="' + i + '"' + (+p.lm === i ? ' selected' : '') + '>' + MN[i - 1] + '月</option>';
-      var DN = L.LunarUtil ? null : null;
-      for (var j = 1; j <= 30; j++) ds += '<option value="' + j + '"' + (+p.ld === j ? ' selected' : '') + '>' + dayCn(j) + '</option>';
-      o += '<div class="row"><label class="f"><span>農曆年（西元）</span><input type="number" inputmode="numeric" data-k="ly" min="1901" max="2099" value="' + esc(p.ly) + '" placeholder="例：1950"></label>' +
-        '<label class="f"><span>月</span><select data-k="lm">' + ms + '</select></label><label class="f"><span>日</span><select data-k="ld">' + ds + '</select></label>' +
+      o += '<div class="row">' + yf('ly', p.ly, '農曆' + ey, ph) + selF('lm', p.lm, 12, '月', MN) + selF('ld', p.ld, 30, '日', 'cn') +
         '<label class="f" style="flex:0 0 60px;align-items:center"><span>閏月</span><input type="checkbox" data-k="leap" ' + (p.leap ? 'checked' : '') + '></label></div>';
     }
     if (dead) {
       var hs = '<option value="">時辰不詳</option>';
       for (var h = 0; h < 12; h++) hs += '<option value="' + h + '"' + (String(p.hour) === String(h) ? ' selected' : '') + '>' + Z.ZHI[h] + '時 ' + Z.HOUR_RANGE[h] + '</option>';
       o += '<div class="row"><label class="f"><span>出生時辰</span><select data-k="hour">' + hs + '</select></label>' +
-        '<label class="f"><span>亡故日期（選填，算享壽）</span><input type="date" data-k="death" value="' + esc(p.death) + '"></label></div>';
+        '</div><div class="row">' + yf('dy', p.dy, '亡故' + ey + '（選填，算享壽）', ph) + selF('dm', p.dm, 12, '月', null) + selF('dd', p.dd, 31, '日', null) + '</div>';
     }
     o += '<div class="info" id="info' + p.id + '">' + infoHtml(p) + '</div>';
     if (!dead || state.persons.filter(function (x) { return x.role === 'dead'; }).length > 1)
@@ -292,6 +304,7 @@
     var a = el.dataset.a, v = el.dataset.v, card = el.closest('[data-id]'), p = card && pById(card.dataset.id);
     switch (a) {
       case 'cal': p.cal = v; save(); render(); break;
+      case 'era': if (p.era !== v) { ['y', 'ly', 'dy'].forEach(function (k) { var n = +p[k]; if (n) p[k] = v === 'ad' ? n + 1911 : (n > 1911 ? n - 1911 : n); }); p.era = v; save(); render(); } break;
       case 'del': state.persons = state.persons.filter(function (x) { return x !== p; }); save(); render(); break;
       case 'addDead': state.persons.push(newPerson('dead')); save(); render(); break;
       case 'addJoin': state.persons.push(newPerson('join')); save(); render(); break;
