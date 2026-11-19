@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>擇日通書</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+  <header><div class="logo">擇</div><div><h1>擇日通書</h1><p>入塔・安奉歷代祖先牌位</p></div></header>
+  <main id="view"></main>
+  <nav id="tabs">
+    <button data-t="data">資料</button>
+    <button data-t="plan">擇日</button>
+    <button data-t="res">結果</button>
+    <button data-t="about">說明</button>
+  </nav>
+  <div id="sheet" class="sheet"></div>
+  <div id="toast"></div>
+</div>
+<script src="lunar.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

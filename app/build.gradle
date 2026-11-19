@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+// versionCode 由 GitHub Actions 的 run_number 傳入，每次建置自動遞增，
+// 搭配固定簽章金鑰，新版 APK 可直接覆蓋安裝，不需先解除安裝。
+def buildNumber = (project.findProperty("versionCode") ?: "1").toString().toInteger()
+
+android {
+    namespace 'tw.zeri.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "tw.zeri.app"
+        minSdk 26
+        targetSdk 34
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
+    }
+
+    signingConfigs {
+        fixed {
+            storeFile file("release.keystore")
+            storePassword "zeri2026"
+            keyAlias "zeri"
+            keyPassword "zeri2026"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.fixed
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
