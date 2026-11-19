@@ -22,6 +22,7 @@
       var s = JSON.parse(localStorage.getItem(KEY) || 'null');
       if (s) { Object.keys(s).forEach(function (k) { state[k] = s[k]; }); state.res = null; state.tab = 'data'; }
     } catch (e) {}
+    ['ta', 'pai'].forEach(function (t) { var z = state.seat[t] && state.seat[t].zuo; if (z != null) state.seat[t].zuo = (Math.round(z / 3) * 3) % 24; });
     state.persons.forEach(function (p) {
       uid = Math.max(uid, (p.id || 0) + 1);
       if (!p.era) {
@@ -101,14 +102,16 @@
   }
 
   // ---------- 座向 ----------
+  var EIGHT = [['北', 0], ['東北', 3], ['東', 6], ['東南', 9], ['南', 12], ['西南', 15], ['西', 18], ['西北', 21]];
   function seatHtml(task, title) {
     var st = state.seat[task], opts = '<option value="">（不指定，略過座向檢核）</option>';
-    var DIRN = Z.PALACE_DIR;
-    for (var i = 0; i < 24; i++) opts += '<option value="' + i + '"' + (st.zuo === i ? ' selected' : '') + '>坐' + Z.SHAN[i] + '山（' + DIRN[Z.PALACE_OF_SHAN[i]] + '・' + (i * 15) + '°）</option>';
+    EIGHT.forEach(function (e) {
+      var op = EIGHT[(EIGHT.indexOf(e) + 4) % 8][0];
+      opts += '<option value="' + e[1] + '"' + (st.zuo === e[1] ? ' selected' : '') + '>坐' + e[0] + '向' + op + '</option>';
+    });
     var si = st.zuo == null ? null : Z.seatInfo(st.zuo);
     return '<div class="card" data-seat="' + task + '"><div style="font-weight:700;margin-bottom:4px">' + title + '</div>' +
-      '<div class="row"><label class="f"><span>座山（背後方位）</span><select data-s="zuo">' + opts + '</select></label>' +
-      '<label class="f" style="flex:0 0 120px"><span>或輸入座度數</span><input type="number" inputmode="decimal" data-s="deg" placeholder="0–360"></label></div>' +
+      '<div class="row"><label class="f"><span>座向（背後為座、面對為向）</span><select data-s="zuo">' + opts + '</select></label></div>' +
       '<div class="info" id="seat' + task + '">' + (si ? '<b>' + esc(si.text) + '</b><div class="note">座在' + si.zuoDir + '（' + si.zuoPalace + '宮）・向在' + si.xiangDir + '（' + si.xiangPalace + '宮）</div>' : '<span class="note">未指定</span>') + '</div></div>';
   }
 
@@ -120,7 +123,7 @@
     o += '<h2>參與人員<small>可多位，勾選納入沖剋計算</small></h2>';
     state.persons.filter(function (p) { return p.role !== 'dead'; }).forEach(function (p) { o += personCard(p); });
     o += '<button class="add" data-a="addJoin">＋ 新增參與人員</button>';
-    o += '<h2>座向<small>坐山向首，向＝座對沖</small></h2>' + seatHtml('ta', '入塔：塔位座向') + seatHtml('pai', '安奉：祖先牌位座向');
+    o += '<h2>座向<small>八方位，向＝座對沖</small></h2>' + seatHtml('ta', '入塔：塔位座向') + seatHtml('pai', '安奉：祖先牌位座向');
     o += '<div class="hint">資料只存在這支手機裡，不會上傳。填完到「擇日」頁開始。</div>';
     return o;
   }
@@ -252,7 +255,7 @@
   function viewAbout() {
     return '<h2>擇日邏輯</h2>' +
       '<p class="t">一、<b>人</b>：亡者與參與人員以農曆年支定生肖；日支、時支與生肖六沖者排除（亡者一律排除；參與者「標準」以上排除）。另提醒刑、害、破與犯太歲。</p>' +
-      '<p class="t">二、<b>座向</b>：座山取24山，雙山歸十二支；向＝座對沖。座山或向首落入各層煞方、與日時相沖，依嚴格度排除或扣分。</p>' +
+      '<p class="t">二、<b>座向</b>：座向以八方位選擇，內部取各方位正中之山（子、艮、卯、巽、午、坤、酉、乾）歸十二支；向＝座對沖。座山或向首落入各層煞方、與日時相沖，依嚴格度排除或扣分。</p>' +
       '<p class="t">三、<b>四層煞</b>：</p><ul class="t">' +
       '<li><b>年煞</b>：太歲、歲破、三煞方（申子辰→南、亥卯未→西、寅午戌→北、巳酉丑→東）、五黃、二黑；年界以立春為準。</li>' +
       '<li><b>月煞</b>：月破日、月三煞方、月建軸、月忌（初五十四廿三）、四廢、天地轉殺、四絕四離、楊公忌；月令以節為界。</li>' +
@@ -335,7 +338,6 @@
     if (sc && el.dataset.s) {
       var t = sc.dataset.seat;
       if (el.dataset.s === 'zuo') state.seat[t].zuo = el.value === '' ? null : +el.value;
-      else if (el.dataset.s === 'deg' && el.value !== '' && isChange) { state.seat[t].zuo = Z.shanFromDeg(+el.value); }
       else return;
       save(); render(); return;
     }
